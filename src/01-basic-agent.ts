@@ -8,7 +8,7 @@
 import 'dotenv/config';
 import { createDeepAgent } from 'deepagents';
 import { logger } from './utils/logger.js';
-import { createLLM } from './utils/config.js';
+import { createLLM, withTracing } from './utils/config.js';
 
 async function main() {
   logger.divider();
@@ -22,9 +22,13 @@ async function main() {
     systemPrompt: '你是一个专业中文助手，回答准确、简洁。',
   });
 
-  // 发送消息
+  // 发送消息（使用 withTracing 包装，启用 LangSmith 追踪）
   logger.step(2, '发送消息给 Agent');
-  const result = await agent.invoke({
+  const invokeAgent = withTracing(
+    (input: any) => agent.invoke(input),
+    'basic-agent-invoke'
+  );
+  const result = await invokeAgent({
     messages: [
       {
         role: 'user',
@@ -39,7 +43,7 @@ async function main() {
 
   // 多轮对话示例
   logger.step(3, '多轮对话');
-  const multiTurnResult = await agent.invoke({
+  const multiTurnResult = await invokeAgent({
     messages: [
       {
         role: 'user',

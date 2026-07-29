@@ -25,28 +25,23 @@ async function main() {
   logger.step(2, '流式输出：简单对话');
   console.log('\n--- 流式输出开始 ---\n');
   
-  const stream1 = await agent.stream({
-    messages: [
-      {
-        role: 'user',
-        content: '用 100 字介绍一下人工智能。',
-      },
-    ],
-  });
+  const stream1 = await (agent.streamEvents as any)(
+    {
+      messages: [
+        {
+          role: 'user',
+          content: '用 100 字介绍一下人工智能。',
+        },
+      ],
+    },
+    { version: 'v3' } as any
+  );
 
-  for await (const event of stream1) {
-    // 事件类型判断
-    if (event.__end__) {
-      // 流结束
-      break;
-    }
-    
-    // 处理不同类型的流事件
-    if (event.messages) {
-      for (const message of event.messages) {
-        if (message.content) {
-          process.stdout.write(message.content as string);
-        }
+  for await (const event of stream1 as any) {
+    if (event.event === 'on_chat_model_stream' && event.data?.chunk?.content) {
+      const chunk = event.data.chunk.content;
+      if (typeof chunk === 'string' && chunk.length > 0) {
+        process.stdout.write(chunk);
       }
     }
   }
@@ -57,7 +52,7 @@ async function main() {
   logger.step(3, '流式输出：带工具调用的复杂任务');
   console.log('\n--- 工具调用流开始 ---\n');
 
-  const stream2 = await agent.stream(
+  const stream2 = await (agent.streamEvents as any)(
     {
       messages: [
         {
@@ -66,21 +61,14 @@ async function main() {
         },
       ],
     },
-    {
-      streamMode: ['messages', 'updates'], // 同时流式输出消息和状态更新
-    }
+    { version: 'v3' }
   );
 
-  for await (const event of stream2) {
-    if (event.__end__) {
-      break;
-    }
-    
-    if (event.messages) {
-      for (const message of event.messages) {
-        if (message.content) {
-          process.stdout.write(message.content as string);
-        }
+  for await (const event of stream2 as AsyncIterable<any>) {
+    if (event.event === 'on_chat_model_stream' && event.data?.chunk?.content) {
+      const chunk = event.data.chunk.content;
+      if (typeof chunk === 'string' && chunk.length > 0) {
+        process.stdout.write(chunk);
       }
     }
   }
@@ -108,9 +96,11 @@ async function main() {
    - 优化 Agent 行为
 
 4. 实现方式：
-   - agent.stream() 方法返回异步迭代器
+   - agent.streamEvents() 方法返回异步迭代器
    - 使用 for await...of 循环处理事件
-   - 事件类型：messages, updates, tools 等
+   - version: 'v3' 使用最新的事件格式
+   - event.event 标识事件类型（on_chat_model_stream 等）
+   - event.data.chunk.content 包含流式文本片段
   `);
 
   logger.success('Demo 07 完成');

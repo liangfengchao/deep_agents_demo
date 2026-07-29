@@ -10,7 +10,7 @@ import { createDeepAgent } from 'deepagents';
 import { tool } from 'langchain';
 import { z } from 'zod';
 import { logger } from './utils/logger.js';
-import { createLLM } from './utils/config.js';
+import { createLLM, withTracing } from './utils/config.js';
 
 // 定义自定义工具：查询天气
 const getWeather = tool(
@@ -114,9 +114,15 @@ async function main() {
     systemPrompt: '你是一个智能助手，可以查询天气、订单和进行计算。请用中文回答。',
   });
 
+  // 使用 withTracing 包装 agent.invoke
+  const invokeAgent = withTracing(
+    (input: any) => agent.invoke(input),
+    'tools-agent-invoke'
+  );
+
   // 测试天气工具
   logger.step(2, '测试天气查询工具');
-  const weatherResult = await agent.invoke({
+  const weatherResult = await invokeAgent({
     messages: [
       {
         role: 'user',
@@ -128,7 +134,7 @@ async function main() {
 
   // 测试订单工具
   logger.step(3, '测试订单查询工具');
-  const orderResult = await agent.invoke({
+  const orderResult = await invokeAgent({
     messages: [
       {
         role: 'user',
@@ -140,7 +146,7 @@ async function main() {
 
   // 测试计算工具
   logger.step(4, '测试计算工具');
-  const calcResult = await agent.invoke({
+  const calcResult = await invokeAgent({
     messages: [
       {
         role: 'user',
@@ -152,7 +158,7 @@ async function main() {
 
   // 测试多工具组合
   logger.step(5, '测试多工具组合');
-  const multiToolResult = await agent.invoke({
+  const multiToolResult = await invokeAgent({
     messages: [
       {
         role: 'user',

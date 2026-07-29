@@ -29,7 +29,7 @@ async function main() {
     //     SKILL.md
     //   code-helper/
     //     SKILL.md
-    // skills: ['./skills'], // 如果有技能目录，取消注释
+    skills: ['./skills'], // 如果有技能目录，取消注释
   });
 
   // 模拟技能使用场景

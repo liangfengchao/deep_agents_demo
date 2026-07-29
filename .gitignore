@@ -50,3 +50,5 @@ coverage/
 .sandbox-workspace/
 *.db
 *.db-journal
+
+skills/

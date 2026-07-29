@@ -27,7 +27,6 @@ async function main() {
   logger.step(1, '创建沙盒后端');
   const backend = new FilesystemBackend({
     rootDir: workDir,
-    allowWrite: true,
   });
 
   // 创建带沙盒的 Agent

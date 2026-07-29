@@ -15,14 +15,15 @@
     "demo:mcp": "tsx src/09-mcp-tools.ts"
   },
   "dependencies": {
-    "deepagents": "^1.11.1",
-    "@langchain/core": "^1.2.0",
+    "@langchain/core": "^1.2.3",
     "@langchain/langgraph": "^1.4.4",
     "@langchain/langgraph-checkpoint": "^1.1.2",
-    "@langchain/openai": "^1.5.1",
+    "@langchain/openai": "^1.5.5",
+    "deepagents": "^1.11.1",
+    "dotenv": "^16.4.0",
     "langchain": "^1.5.0",
-    "zod": "^3.23.0",
-    "dotenv": "^16.4.0"
+    "langsmith": "^0.7.17",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -7,24 +7,17 @@
 
 import 'dotenv/config';
 import { createDeepAgent } from 'deepagents';
-import { SqliteSaver } from '@langchain/langgraph';
+import { MemorySaver } from '@langchain/langgraph';
 import { logger } from './utils/logger.js';
 import { createLLM } from './utils/config.js';
-import * as fs from 'fs';
-import * as path from 'path';
 
 async function main() {
   logger.divider();
-  logger.info('Demo 08: 检查点持久化');
+  logger.info('Demo 08: 检查点系统');
   logger.divider();
 
-  // 创建 SQLite 数据库文件
-  const dbPath = path.join(process.cwd(), '.checkpoint-demo.db');
-  
-  logger.step(1, '创建 SQLite Checkpointer');
-  const checkpointer = await SqliteSaver.create({
-    database: dbPath,
-  });
+  logger.step(1, '创建 MemorySaver Checkpointer');
+  const checkpointer = new MemorySaver();
 
   // 创建带检查点的 Agent
   logger.step(2, '创建带检查点的 Agent');
@@ -35,6 +28,7 @@ async function main() {
   });
 
   const threadId = 'checkpoint-demo-thread';
+  const config = { configurable: { thread_id: threadId } } as Record<string, any>;
 
   // 对话 1：第一轮
   logger.step(3, '对话 1：第一轮对话');
@@ -47,11 +41,11 @@ async function main() {
         },
       ],
     },
-    { configurable: { thread_id: threadId } }
+    config
   );
   logger.result(
     '第一轮回复',
-    result1.messages[result1.messages.length - 1].content as string
+    String(result1.messages[result1.messages.length - 1].content)
   );
 
   // 对话 2：继续对话
@@ -65,7 +59,7 @@ async function main() {
         },
       ],
     },
-    { configurable: { thread_id: threadId } }
+    config
   );
   logger.result(
     '第二轮回复',
@@ -74,11 +68,10 @@ async function main() {
 
   // 获取检查点历史
   logger.step(5, '获取检查点历史');
-  const threadState = await checkpointer.get({ thread_id: threadId });
+  const getConfig: any = { configurable: { thread_id: threadId } };
+  const threadState = await checkpointer.get(getConfig);
   logger.info('检查点状态', {
     threadId,
-    checkpointId: threadState?.checkpoint_id,
-    messageCount: threadState?.channel_values?.messages?.length || 0,
   });
 
   // 模拟中断恢复场景
@@ -96,33 +89,21 @@ async function main() {
         },
       ],
     },
-    { configurable: { thread_id: threadId } }
+    config
   );
   logger.result(
     '恢复后回复',
-    result3.messages[result3.messages.length - 1].content as string
+    String(result3.messages[result3.messages.length - 1].content)
   );
 
-  // 清理数据库文件
-  logger.step(7, '清理数据库文件');
-  try {
-    if (fs.existsSync(dbPath)) {
-      fs.unlinkSync(dbPath);
-      logger.success('数据库文件已清理');
-    }
-  } catch (error) {
-    logger.warn('清理数据库文件失败', error);
-  }
-
   // 说明检查点系统
-  logger.step(8, '检查点系统说明');
+  logger.step(7, '检查点系统说明');
   logger.info(`
 检查点系统说明：
 
 1. Checkpointer 类型：
    - MemorySaver: 内存存储（重启后丢失）
-   - SqliteSaver: SQLite 持久化（本地文件）
-   - PostgresSaver: PostgreSQL 持久化（生产环境）
+   - 自定义 Checkpointer: 可实现持久化存储
 
 2. 核心功能：
    - 自动保存对话状态
@@ -141,11 +122,9 @@ async function main() {
    - 可以使用 UUID 生成
    - 建议使用业务标识（如 userId）
 
-5. 生产环境建议：
-   - 使用 PostgreSQL 作为存储
-   - 定期清理过期检查点
-   - 监控数据库大小
-   - 实现检查点备份策略
+5. 持久化方案：
+   - 开发测试：MemorySaver（内存）
+   - 生产环境：自定义 Checkpointer 实现
   `);
 
   logger.success('Demo 08 完成');
