@@ -1,0 +1,32 @@
+{
+  "name": "deepagents-ts-demo",
+  "version": "1.0.0",
+  "description": "DeepAgents TypeScript Demo Collection - 多智能体、技能、沙盒等功能演示",
+  "type": "module",
+  "scripts": {
+    "demo:basic": "tsx src/01-basic-agent.ts",
+    "demo:tools": "tsx src/02-custom-tools.ts",
+    "demo:multi": "tsx src/03-multi-agent.ts",
+    "demo:skills": "tsx src/04-skills.ts",
+    "demo:sandbox": "tsx src/05-sandbox.ts",
+    "demo:memory": "tsx src/06-memory.ts",
+    "demo:stream": "tsx src/07-streaming.ts",
+    "demo:checkpoint": "tsx src/08-checkpoint.ts",
+    "demo:mcp": "tsx src/09-mcp-tools.ts"
+  },
+  "dependencies": {
+    "deepagents": "^1.11.1",
+    "@langchain/core": "^1.2.0",
+    "@langchain/langgraph": "^1.4.4",
+    "@langchain/langgraph-checkpoint": "^1.1.2",
+    "@langchain/openai": "^1.5.1",
+    "langchain": "^1.5.0",
+    "zod": "^3.23.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
