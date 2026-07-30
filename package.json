@@ -12,7 +12,11 @@
     "demo:memory": "tsx src/06-memory.ts",
     "demo:stream": "tsx src/07-streaming.ts",
     "demo:checkpoint": "tsx src/08-checkpoint.ts",
-    "demo:mcp": "tsx src/09-mcp-tools.ts"
+    "demo:mcp": "tsx src/09-mcp-tools.ts",
+    "demo:hierarchical": "tsx src/10-hierarchical-agents.ts",
+    "demo:async": "tsx src/11-async-subagents.ts",
+    "demo:server": "tsx src/12-agent-protocol-server.ts",
+    "demo:async-server": "tsx src/12-async-with-server.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.3",
@@ -23,10 +27,14 @@
     "dotenv": "^16.4.0",
     "langchain": "^1.5.0",
     "langsmith": "^0.7.17",
-    "zod": "^3.23.0"
+    "zod": "^3.23.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

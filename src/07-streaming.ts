@@ -25,7 +25,7 @@ async function main() {
   logger.step(2, '流式输出：简单对话');
   console.log('\n--- 流式输出开始 ---\n');
   
-  const stream1 = await (agent.streamEvents as any)(
+  const run1 = await (agent.streamEvents as any)(
     {
       messages: [
         {
@@ -37,12 +37,9 @@ async function main() {
     { version: 'v3' } as any
   );
 
-  for await (const event of stream1 as any) {
-    if (event.event === 'on_chat_model_stream' && event.data?.chunk?.content) {
-      const chunk = event.data.chunk.content;
-      if (typeof chunk === 'string' && chunk.length > 0) {
-        process.stdout.write(chunk);
-      }
+  for await (const msg of run1.messages) {
+    for await (const token of msg.text) {
+      process.stdout.write(token);
     }
   }
   
@@ -52,7 +49,7 @@ async function main() {
   logger.step(3, '流式输出：带工具调用的复杂任务');
   console.log('\n--- 工具调用流开始 ---\n');
 
-  const stream2 = await (agent.streamEvents as any)(
+  const run2 = await (agent.streamEvents as any)(
     {
       messages: [
         {
@@ -61,15 +58,12 @@ async function main() {
         },
       ],
     },
-    { version: 'v3' }
+    { version: 'v3' } as any
   );
 
-  for await (const event of stream2 as AsyncIterable<any>) {
-    if (event.event === 'on_chat_model_stream' && event.data?.chunk?.content) {
-      const chunk = event.data.chunk.content;
-      if (typeof chunk === 'string' && chunk.length > 0) {
-        process.stdout.write(chunk);
-      }
+  for await (const msg of run2.messages) {
+    for await (const token of msg.text) {
+      process.stdout.write(token);
     }
   }
 
