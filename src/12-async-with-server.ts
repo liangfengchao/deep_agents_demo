@@ -1,7 +1,12 @@
 /**
- * Demo 12: 使用自建 Agent Protocol 服务器
+ * Demo 12: AsyncSubAgent 混合 HTTP 传输
  *
- * 展示如何使用 AsyncSubAgent 连接自建的 Agent Protocol 服务器
+ * 本脚本在独立 Node 进程中运行，不能使用「无 url」的 ASGI（那只在
+ * langgraph:dev 同部署进程内生效，见 src/graphs/supervisor.ts）。
+ *
+ * 这里用两个远程 HTTP 目标演示混合：
+ * - data_analyst → LangGraph 本地服务（pnpm langgraph:dev）
+ * - report_writer → 自建 Agent Protocol 服务器（pnpm demo:server）
  */
 
 import 'dotenv/config';
@@ -9,16 +14,15 @@ import { createDeepAgent, type AsyncSubAgent } from 'deepagents';
 import { logger } from './utils/logger.js';
 import { createLLM } from './utils/config.js';
 
-// Agent Protocol 服务器地址
+const LANGGRAPH_URL = process.env.LANGGRAPH_URL || 'http://localhost:2024';
 const AGENT_SERVER_URL = process.env.AGENT_SERVER_URL || 'http://localhost:8001';
 
-// 创建 AsyncSubAgent 配置
 const asyncSubagents: AsyncSubAgent[] = [
   {
-    name: 'remote_data_analyst',
-    description: '远程数据分析师，擅长数据分析和洞察提取',
-    graphId: 'data_analyst', // 对应服务器上的 Agent ID
-    url: AGENT_SERVER_URL,
+    name: 'langgraph_data_analyst',
+    description: 'LangGraph 数据分析师，擅长数据分析和洞察提取',
+    graphId: 'data_analyst', // 对应 langgraph.json
+    url: LANGGRAPH_URL,
   },
   {
     name: 'remote_report_writer',
@@ -28,38 +32,27 @@ const asyncSubagents: AsyncSubAgent[] = [
   },
 ];
 
+async function ensureOk(url: string, hint: string) {
+  try {
+    const res = await fetch(`${url}/ok`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (error) {
+    logger.error(`${url} 不可用`, error);
+    logger.info(hint);
+    process.exit(1);
+  }
+}
+
 async function main() {
   logger.divider();
-  logger.info('Demo 12: 使用自建 Agent Protocol 服务器');
+  logger.info('Demo 12: AsyncSubAgent 混合 HTTP（LangGraph + 自建服务器）');
   logger.divider();
 
-  // 步骤 1: 在服务器上创建远程 Agent
-  logger.step(1, '在 Agent Protocol 服务器上创建远程 Agent');
+  logger.step(1, '检查依赖服务并创建远程报告撰写专家');
+  await ensureOk(LANGGRAPH_URL, '请先启动: pnpm langgraph:dev');
+  logger.success(`LangGraph 可用: ${LANGGRAPH_URL} (graphId=data_analyst)`);
 
   try {
-    // 创建数据分析师 Agent
-    const dataAnalystResponse = await fetch(`${AGENT_SERVER_URL}/assistants`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: '数据分析师',
-        instructions: `你是一个专业的数据分析师。你的职责是：
-- 分析用户提供的数据
-- 提取关键指标和趋势
-- 给出数据驱动的洞察和建议
-
-请用简洁的中文回答。`,
-      }),
-    });
-
-    if (!dataAnalystResponse.ok) {
-      throw new Error(`创建数据分析师失败: ${dataAnalystResponse.statusText}`);
-    }
-
-    const dataAnalyst = await dataAnalystResponse.json();
-    logger.success(`数据分析师创建成功: ${dataAnalyst.assistant_id}`);
-
-    // 创建报告撰写专家 Agent
     const reportWriterResponse = await fetch(`${AGENT_SERVER_URL}/assistants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,12 +72,10 @@ async function main() {
     }
 
     const reportWriter = await reportWriterResponse.json();
-    logger.success(`报告撰写专家创建成功: ${reportWriter.assistant_id}`);
-
-    // 更新 AsyncSubAgent 配置
-    asyncSubagents[0].graphId = dataAnalyst.assistant_id;
     asyncSubagents[1].graphId = reportWriter.assistant_id;
-
+    logger.success(`远程报告撰写专家创建成功: ${reportWriter.assistant_id}`);
+    logger.info(`子 Agent[0]: ${asyncSubagents[0].name} → ${LANGGRAPH_URL}`);
+    logger.info(`子 Agent[1]: ${asyncSubagents[1].name} → ${AGENT_SERVER_URL}`);
   } catch (error) {
     logger.error('创建远程 Agent 失败', error);
     logger.info('请确保 Agent Protocol 服务器已启动: pnpm demo:server');
@@ -92,32 +83,14 @@ async function main() {
   }
 
   // 步骤 2: 创建主 Agent，使用 AsyncSubAgent
-  logger.step(2, '创建主 Agent，配置 AsyncSubAgent');
+  logger.step(2, '创建主 Agent，配置混合 AsyncSubAgent');
 
   const mainAgent = createDeepAgent({
     model: createLLM(),
     name: '主协调Agent',
-    systemPrompt: `你是一个智能任务协调者。你的职责是：
-- 理解用户需求
-- 将任务分解并委派给合适的远程子 Agent
-- 使用 start_async_task 启动异步任务
-- 使用 check_async_task 检查任务状态
-- 使用 list_async_tasks 列出所有任务
-- 整合子 Agent 的结果
-- 向用户提供最终答案
-
-可用的远程子 Agent：
-1. 数据分析师 (remote_data_analyst) - 擅长数据分析
-2. 报告撰写专家 (remote_report_writer) - 擅长撰写报告
-
-重要提示：
-- 使用 start_async_task 启动异步任务，立即返回任务 ID
-- 使用 check_async_task 检查任务状态和结果
-- 主 Agent 可以继续与用户交互，不需要等待任务完成
-- 直接输出分析结果，不要使用 write_todos 工具
-
-请用简洁的中文回答。`,
-    subagents: asyncSubagents as any, // AsyncSubAgent 类型
+    systemPrompt: `你是任务协调者：理解需求，把任务委派给合适的子 Agent，整合结果后用简洁中文回答用户。
+可并行委派，拿到结果后再汇总。分析数据用 langgraph_data_analyst，写报告用 remote_report_writer。`,
+    subagents: asyncSubagents as any,
   });
 
   logger.success('主 Agent 创建完成');
@@ -195,11 +168,11 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        assistant_id: asyncSubagents[0].graphId,
+        assistant_id: asyncSubagents[1].graphId, // 远程子 Agent
         input: {
           messages: [{
             role: 'user',
-            content: '分析销售数据：1月100万，2月120万，3月90万，4月150万，5月180万。给出趋势分析和关键洞察。'
+            content: '根据销售数据（1月100万，2月120万，3月90万，4月150万，5月180万）撰写一份简要分析报告。'
           }]
         }
       }),
@@ -210,7 +183,7 @@ async function main() {
     // 3. 获取 Thread 状态（包含结果）
     const stateResponse = await fetch(`${AGENT_SERVER_URL}/threads/${thread.thread_id}/state`);
     const state = await stateResponse.json();
-    
+
     console.log('\n--- 任务结果 ---');
     const messages = state.values?.messages || [];
     if (messages.length > 0) {
@@ -226,46 +199,20 @@ async function main() {
   }
 
   // 说明架构
-  logger.step(5, 'Agent Protocol 架构说明');
+  logger.step(5, '混合传输架构说明');
   logger.info(`
-Agent Protocol 服务器架构：
+本脚本（独立进程）只能用 HTTP：
 
-1. 服务器端点：
-   - POST /v1/agents              - 创建 Agent
-   - GET  /v1/agents/:id          - 获取 Agent 信息
-   - POST /v1/threads             - 创建对话线程
-   - POST /v1/runs                - 同步运行 Agent
-   - POST /v1/runs/async          - 启动异步任务
-   - GET  /v1/runs/async          - 列出异步任务
-   - GET  /v1/runs/async/:id      - 检查任务状态
-   - POST /v1/runs/async/:id/cancel - 取消任务
-   - POST /v1/runs/stream         - 流式运行
+1. LangGraph HTTP → ${LANGGRAPH_URL}
+   - langgraph_data_analyst / graphId=data_analyst
+   - 需先: pnpm langgraph:dev
 
-2. AsyncSubAgent 配置：
-   - graphId: 服务器上的 Agent ID
-   - url: Agent Protocol 服务器地址
-   - name: 子 Agent 名称
-   - description: 子 Agent 描述
+2. 自建服务器 HTTP → ${AGENT_SERVER_URL}
+   - remote_report_writer
+   - 需先: pnpm demo:server
 
-3. 异步工具：
-   - start_async_task: 启动异步任务
-   - check_async_task: 检查任务状态
-   - update_async_task: 更新运行中的任务
-   - cancel_async_task: 取消任务
-   - list_async_tasks: 列出所有任务
-
-4. 使用流程：
-   1. 启动 Agent Protocol 服务器: pnpm demo:server
-   2. 在服务器上创建远程 Agent
-   3. 主 Agent 配置 AsyncSubAgent，指向服务器
-   4. 主 Agent 使用 start_async_task 启动远程任务
-   5. 主 Agent 继续执行，稍后使用 check_async_task 获取结果
-
-5. 优势：
-   - 真正的异步执行，不阻塞主 Agent
-   - 支持任务状态持久化
-   - 支持跨网络、跨进程调用
-   - 可以水平扩展远程 Agent
+真正的 ASGI（不写 url）只在 src/graphs/supervisor.ts 内生效，
+即通过 Studio / langgraph:dev 调用 supervisor 时才会走进程内通信。
   `);
 
   logger.success('Demo 12 完成');

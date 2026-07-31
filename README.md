@@ -52,6 +52,9 @@ pnpm demo:checkpoint
 
 # MCP 工具
 pnpm demo:mcp
+
+# Token 用量统计
+pnpm demo:token
 ```
 
 ## 📚 Demo 列表
@@ -80,8 +83,18 @@ pnpm demo:mcp
 ### 08 - 检查点持久化
 演示如何使用 Checkpointer 持久化对话状态，支持中断恢复。
 
-### 09 - MCP 工具
-展示如何集成 MCP（Model Context Protocol）工具，连接外部服务。
+### 09 - MCP 连接器（腾讯文档）
+通过 `@langchain/mcp-adapters` 连接远程腾讯文档 MCP（`https://docs.qq.com/openapi/mcp`），
+用 `Authorization` Header 注入个人 Token，拉取真实工具并交给 DeepAgent。
+
+```bash
+# 1. 打开 https://docs.qq.com/open/auth/mcp.html 获取 Token
+# 2. .env 写入 TENCENT_DOCS_TOKEN=...
+pnpm demo:mcp
+```
+
+### 13 - Token 用量统计
+`TokenBudgetMiddleware` 在每次模型调用结束后分桶统计：系统提示词 / 工具及智能体 / 对话消息 / 连接器及MCP / 技能。
 
 ## 🏗️ 项目结构
 
